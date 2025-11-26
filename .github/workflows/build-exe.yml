@@ -3,7 +3,10 @@ name: Build EXE
 on:
   push:
     tags:
-      - 'v*'  # Se ejecuta cuando hagas git tag v1.0, v2.1, etc.
+      - 'v*' 
+ 
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -32,7 +35,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SCL-90R_Windows_EXE
-        path: dist/SCLinico_SCL90R.exe
+        path: dist/SCL-90-R.exe
 
     - name: Create Release + attach EXE
       uses: softprops/action-gh-release@v2
