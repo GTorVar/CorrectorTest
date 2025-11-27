@@ -46,4 +46,5 @@ jobs:
       with:
         files: dist/SCL-90-R.exe
         generate_release_notes: true
-        token: ${{ secrets.MY_PAT }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.MY_PAT }}
