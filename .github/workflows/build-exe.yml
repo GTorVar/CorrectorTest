@@ -10,17 +10,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     permissions:
       contents: write
       actions: write
-    
-    strategy:
-      matrix:
-        os: [windows-latest, windows-2019]
-        architecture: [x64, x86]
-        
-    name: Build EXE on ${{ matrix.os }} - ${{ matrix.architecture }}
 
     steps:
     - name: Checkout code
@@ -30,7 +23,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-        architecture: ${{ matrix.architecture }}
 
     - name: Install PyInstaller + dependencies
       run: |
@@ -45,7 +37,7 @@ jobs:
     - name: Upload EXE as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: SCL-90R_${{ matrix.os }}_${{ matrix.architecture }}
+        name: SCL-90R_EXE
         path: dist/SCL-90-R.exe
 
     - name: Create Release + attach EXE
