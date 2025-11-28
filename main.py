@@ -5,11 +5,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.lib.units import cm
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 import io
-import pandas as pd
 import numpy as np
 import os
 
