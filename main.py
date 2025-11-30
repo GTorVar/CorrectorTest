@@ -7,7 +7,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import matplotlib.pyplot as plt
 import io
-import numpy as np
 import os
 
 class CorrectorPsicometrico:
@@ -78,11 +77,6 @@ class CorrectorPsicometrico:
         self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
         self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))  # Linux
 
-        # Crear labels de cabecera para subescalas
-        # ttk.Label(scrollable_frame, text="Subescala 1", style='Header.TLabel').grid(row=0, column=0, columnspan=2, pady=5, sticky='nsew')
-        # ttk.Label(scrollable_frame, text="Subescala 2", style='Header.TLabel').grid(row=0, column=2, columnspan=2, pady=5, sticky='nsew')
-        # ttk.Label(scrollable_frame, text="Subescala 3", style='Header.TLabel').grid(row=0, column=4, columnspan=2, pady=5, sticky='nsew')
-
         # Crear 30 filas x 6 columnas (cols 0,2,4: Labels "Pregunta X"; cols 1,3,5: Entries)
         self.entries = []  # Lista plana de 90 entries para tab order vertical
         for sub in range(3): #3 columnas
@@ -90,16 +84,11 @@ class CorrectorPsicometrico:
             col_entry = 2 * sub + 1  # Cols 1,3,5 para entries
 
             for row in range(30):  # 30 preguntas
-                # Label "Pregunta X" (compartido visualmente, pero por subescala)
+                # Label "Pregunta X" (compartido visualmente, pero por columnas)
                 label_text = f"Pregunta {row+sub*30+1}"
                 ttk.Label(scrollable_frame, text=label_text, style='Modern.TLabel', width=18, anchor='center').grid(
                     row=row+1, column=col_label, sticky='nsew', padx=1, pady=1
                 )
-
-                # Fila de números
-                #num_label = ttk.Label(scrollable_frame, text=str(row+1), style='Modern.TLabel', width=8, anchor='center')
-                #num_label.grid(row=row+1, column=0, sticky='nsew', padx=(5, 1), pady=1)
-                #num_label.grid_propagate(False)  # Fija ancho
 
                 # Entry para Likert 0-4
                 entry = ttk.Entry(scrollable_frame, width=6, style='Modern.TEntry')
@@ -118,7 +107,7 @@ class CorrectorPsicometrico:
         self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar_v.pack(side="right", fill="y")
 
-        # === TAB ORDER VERTICAL: Sub1 (0-29), Sub2 (30-59), Sub3 (60-89) ===
+        # === TAB ORDER VERTICAL: Col1 (0-29), Col2 (30-59), Col3 (60-89) ===
         for i, entry in enumerate(self.entries):
             entry.lift()  # Asegurar visibilidad
         self._configurar_tab_order()
@@ -129,10 +118,13 @@ class CorrectorPsicometrico:
         self.btn_corregir = ttk.Button(button_frame, text="CORREGIR Y GENERAR PDF", command=self.corregir, style='Modern.TButton', cursor='hand2')
         self.btn_corregir.pack()
 
+    # === FUNCIONES INTERNAS ===
+    # Movimiento del ratón
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         return "break"  # Evita propagación
 
+    # Validación de la escala (0-4)
     def _validar_likert(self, event):
         entry = event.widget
         valor = entry.get().strip()
@@ -141,8 +133,9 @@ class CorrectorPsicometrico:
             entry.insert(0, "")  # Limpiar inválido
             messagebox.showwarning("Validación", "Solo números 0-4 permitidos")
 
+    # Configuración de <tab> y <enter>
     def _configurar_tab_order(self):
-        # Bind Tab para order vertical: Sub1 → Sub2 → Sub3 → ciclo
+        # Bind Tab para order vertical: Col1 → Col2 → Col3 (ciclo)
         def next_tab(event):
             current = event.widget
             idx = self.entries.index(current)
@@ -152,7 +145,8 @@ class CorrectorPsicometrico:
 
         for entry in self.entries:
             entry.bind('<Tab>', next_tab)
-            entry.bind('<Shift-Tab>', lambda e: "break")  # Opcional: deshabilitar shift-tab
+            entry.bind('<Return>', next_tab)
+            entry.bind('<Shift-Tab>', lambda e: "break")
 
     def corregir(self):
         nombre = self.entry_nombre.get().strip()
@@ -167,7 +161,7 @@ class CorrectorPsicometrico:
             messagebox.showerror("Error", "Introduce el nombre del/de la terapeuta")
             return
         
-        # Nombre por defecto bonito y seguro
+        # Nombre útil por defecto
         nombre_por_defecto = f"SCL90R_{nombre.replace(' ', '_')}_{self.entry_fecha.get().replace('/', '-')}.pdf"
 
         # Abrir diálogo de guardado (funciona en Windows, Linux y macOS)
@@ -186,7 +180,6 @@ class CorrectorPsicometrico:
 
         # ==================== SCL-90-R OFICIAL ====================
         # Índices de los ítems para cada dimensión (empezando en 0, no en 1)
-
         scl90r_escalas = {
             "Somatización":          [1, 4, 12, 27, 40, 42, 48, 49, 52, 53, 56, 58],      # 12 ítems
             "Obsesividad-Compulsividad": [3, 9, 10, 18, 28, 38, 45, 46, 51, 55],          # 10 ítems
@@ -202,7 +195,7 @@ class CorrectorPsicometrico:
         # Ítems ADICIONALES (no entran en las 9 dimensiones, pero sí en los índices globales)
         items_adicionales = [19, 44, 59, 60, 64, 66, 89]   # 7 ítems que solo cuentan en GSI, PSDI, PST
 
-        # Recoger respuestas Likert (90 valores)
+        # === RECOGER RESPUESTAS ===
         respuestas = []
         for entry in self.entries:
             val = entry.get().strip()
@@ -215,12 +208,12 @@ class CorrectorPsicometrico:
             raise ValueError("Alguna respuesta no es numérica")
 
         if len(valores) != 90:
-            messagebox.showerror("Error", "Deben haber exactamente 90 respuestas")
+            messagebox.showerror("Error", "Debe haber exactamente 90 respuestas")
             return
 
         resultados = {}
 
-        # Calcular las 9 dimensiones
+        # === CALCULAR DIMENSIONES ===
         sub_sumas = []  # Lista de sumas brutas para las gráficas
         for escala, items in scl90r_escalas.items():
             puntaje = sum(valores[i-1] for i in items)   # -1 porque el manual cuenta desde 1
@@ -282,15 +275,6 @@ class CorrectorPsicometrico:
 
         sexo = self.entry_sexo.get().strip()
 
-        # Histograma: Distribución Likert (0-4) de todas las respuestas
-        fig1, ax1 = plt.subplots()
-        unique, counts = np.unique(respuestas, return_counts=True)
-        ax1.bar(unique, counts, color='#0078d4')
-        ax1.set_title('Distribución de Respuestas (Likert 0-4)')
-        ax1.set_xlabel('Valor Likert')
-        ax1.set_ylabel('Frecuencia')
-        ax1.set_xticks([0,1,2,3,4])
-
         # Barras con cortes clínicos
         etiquetas = list(normas_es.keys())
 
@@ -327,11 +311,6 @@ class CorrectorPsicometrico:
                          f'{val:.2f}', ha='center', va='bottom', fontsize=10)
 
         # Guardar como imágenes
-        self.img_hist = io.BytesIO()
-        fig1.savefig(self.img_hist, format='png', bbox_inches='tight', dpi=150)
-        self.img_hist.seek(0)
-        plt.close(fig1)
-
         self.img_barras = io.BytesIO()
         fig2.savefig(self.img_barras, format='png', bbox_inches='tight', dpi=200)
         self.img_barras.seek(0)
@@ -428,10 +407,10 @@ class CorrectorPsicometrico:
         # Índices globales
         ig = resultados["Índices Globales"]
         story.append(Paragraph("<b>Índices Globales</b>", styles['Heading2']))
-        if  ig['GSI'] >= 1:
-            story.append(Paragraph(f"• Índice de severidad global (GSI): <b> {ig['GSI']:.2f} </b>  (≥1.00 = malestar)", styles['Normal']))
-            if  ig['GSI'] >= 1.5:
-                story.append(Paragraph(f"• Índice de severidad global (GSI): <b><font color='red'> {ig['GSI']:.2f} </font></b>  (≥1.50 = caso clínico)", styles['Normal']))
+        if  ig['GSI'] >= 1.5:
+            story.append(Paragraph(f"• Índice de severidad global (GSI): <b><font color='red'> {ig['GSI']:.2f} </font></b>  (≥1.50 = caso clínico)", styles['Normal']))
+            if  ig['GSI'] >= 1 and ig['GSI'] < 1.5:
+                story.append(Paragraph(f"• Índice de severidad global (GSI): <b> {ig['GSI']:.2f} </b>  (≥1.00 = malestar)", styles['Normal']))
         else:
             story.append(Paragraph(f"• Índice de severidad global (GSI): {ig['GSI']:.2f}  (≥1.00 = malestar | ≥1.50 = caso clínico)", styles['Normal']))
         
@@ -488,11 +467,7 @@ class CorrectorPsicometrico:
         story.append(Spacer(1, 40))
 
         # Gráficas
-        if hasattr(self, 'img_hist') and hasattr(self, 'img_barras'):
-            #story.append(Paragraph("Distribución de respuestas (Likert 0-4)", styles['Heading3']))
-            #story.append(Image(self.img_hist, width=300, height=200))
-            #story.append(Spacer(1, 20))
-
+        if hasattr(self, 'img_barras'):
             story.append(Paragraph("Puntuaciones por dimensión", styles['Heading3']))
             story.append(Image(self.img_barras, width=500, height=300))
 

@@ -29,10 +29,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         if (Test-Path requirements.txt) { pip install -r requirements.txt }
+        
+    - name: Download and install UPX
+      run: |
+        Invoke-WebRequest -Uri https://github.com/upx/upx/releases/download/v5.0.0/upx-5.0.0-win64.zip -OutFile upx.zip
+        Expand-Archive upx.zip -DestinationPath upx
+        echo "${{ github.workspace }}\upx\upx-5.0.0-win64" >> $env:GITHUB_PATH
+
+    - name: Verify UPX is available
+      run: upx --version
 
     - name: Build EXE
       run: |
-        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" main.py
+        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" --upx-dir "${{ github.workspace }}/upx/upx-5.0.0-win64" main.py
 
     - name: Upload EXE as artifact
       uses: actions/upload-artifact@v4
