@@ -34,19 +34,7 @@ jobs:
         # Fuerza el nivel máximo de UPX en todo lo que pueda
         UPX_OPTIONS: --best --compress-exports=1 --strip-unneeded --overlay=strip
       run: |
-        pyinstaller 
-            --onefile ^
-            --noconsole ^
-            --clean ^
-            --icon=icon.ico ^
-            --name "SCL-90-R" ^
-            --upx-dir "$PWD\upx-5.0.0-win64" ^
-            --exclude-module tkinter ^
-            --exclude-module _tkinter ^
-            --exclude-module Tkinter ^
-            --exclude-module matplotlib.tests ^
-            --exclude-module matplotlib.testing ^
-            main.py
+        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" --upx-dir "$PWD\upx-5.0.0-win64" --exclude-module tkinter --exclude-module _tkinter --exclude-module Tkinter --exclude-module matplotlib.tests --exclude-module matplotlib.testing main.py
 
     - name: UPX extra sobre el exe final (el truco que falta a la mayoría)
       run: |
