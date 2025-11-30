@@ -11,10 +11,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python 3.11 
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies + PyInstaller
@@ -32,9 +32,9 @@ jobs:
     - name: Build con trucos para mínimo tamaño
       env:
         # Fuerza el nivel máximo de UPX en todo lo que pueda
-        UPX_OPTIONS: --best --compress-exports=1 --strip-unneeded --overlay=strip
+        UPX_OPTIONS: --best
       run: |
-        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" --upx-dir "$PWD\upx-5.0.0-win64" --exclude-module matplotlib.tests --exclude-module matplotlib.testing main.py
+        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" --upx-dir "$PWD\upx-5.0.0-win64" main.py
 
     - name: Mostrar tamaño final
       run: |
