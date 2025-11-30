@@ -27,10 +27,10 @@ class CorrectorPsicometrico:
         # Tamaño adaptativo
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
-        w = min(750, int(screen_w * 0.9))  # Más ancho para 6 cols
-        h = min(950, int(screen_h * 0.8))
-        root.geometry(f"{w}x{h}")
-        root.minsize(750, 950)
+        w = int(screen_w * 0.40)
+        h = int(screen_h * 0.9)
+        root.geometry(f"{w}x{h}+{int(screen_w*0.3)}+{int(screen_h*0.05)}")
+        root.minsize(w , h)
 
         # === HEADER: Nombre y Fecha ===
         header_frame = ttk.Frame(root, relief='flat', padding=10)
@@ -55,27 +55,28 @@ class CorrectorPsicometrico:
         self.entry_terapeuta = ttk.Entry(header_frame, width=20, style='Modern.TEntry')
         self.entry_terapeuta.grid(row=1, column=1, sticky='w', padx=(0, 20))
 
-        # === CUADRÍCULA 6 COLS x 30 FILAS (3 subescalas: Label+Entry repetido) ===
-        grid_frame = ttk.Frame(root)
-        grid_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        # === CUADRÍCULA 6 COLS x 30 FILAS (3 columnas: Label+Entry repetido) ===
+        # Container para scroll
+        container = ttk.Frame(root)
+        container.pack(fill='both', expand=True)
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
 
         # Canvas + Scroll MEJORADO (responde a rueda del ratón)
-        self.canvas = tk.Canvas(grid_frame, bg='#f8f9fa', highlightthickness=0)
-        scrollbar_v = ttk.Scrollbar(grid_frame, orient='vertical', command=self.canvas.yview)
-        scrollable_frame = ttk.Frame(self.canvas, style='Modern.TFrame')
+        self.canvas = tk.Canvas(container, bg='#f8f9fa', highlightthickness=0)
+        self.canvas.grid(row=0, column=0, sticky='nsew')
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+        scrollbar_v = ttk.Scrollbar(container, orient='vertical', command=self.canvas.yview)
+        scrollbar_h = ttk.Scrollbar(container, orient='horizontal', command=self.canvas.xview)
 
-        self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar_v.set)
-
-        # Bind rueda del ratón al canvas (arregla el scroll)
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
-        self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))  # Linux
+        scrollbar_v.grid(row=0, column=1, sticky="ns")
+        scrollbar_h.grid(row=1, column=0, sticky="ew")
+      
+        # === Frame para mover
+        self.scrollable_frame = ttk.Frame(self.canvas, style='Modern.TFrame')
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar_v.set, xscrollcommand=scrollbar_h.set)
 
         # Crear 30 filas x 6 columnas (cols 0,2,4: Labels "Pregunta X"; cols 1,3,5: Entries)
         self.entries = []  # Lista plana de 90 entries para tab order vertical
@@ -86,27 +87,56 @@ class CorrectorPsicometrico:
             for row in range(30):  # 30 preguntas
                 # Label "Pregunta X" (compartido visualmente, pero por columnas)
                 label_text = f"Pregunta {row+sub*30+1}"
-                ttk.Label(scrollable_frame, text=label_text, style='Modern.TLabel', width=18, anchor='center').grid(
+                ttk.Label(self.scrollable_frame, text=label_text, style='Modern.TLabel', width=18, anchor='center').grid(
                     row=row+1, column=col_label, sticky='nsew', padx=1, pady=1
                 )
 
                 # Entry para Likert 0-4
-                entry = ttk.Entry(scrollable_frame, width=6, style='Modern.TEntry')
+                entry = ttk.Entry(self.scrollable_frame, width=6, style='Modern.TEntry')
                 entry.grid(row=row+1, column=col_entry, sticky='nsew', padx=1, pady=1)
                 self.entries.append(entry)  # Añadir a lista plana para tab
 
                 # Validación en tiempo real (solo 0-4)
                 entry.bind('<KeyRelease>', self._validar_likert)
+        
+        # === ACTUALIZAR SCROLLREGION PERFECTAMENTE (vertical + horizontal) ===
+        def actualizar_scrollregion():
+            self.canvas.update_idletasks()  # Fuerza a Tkinter a calcular todos los tamaños
+            region = self.canvas.bbox("all")
+            if region:
+                self.canvas.configure(scrollregion=region)
 
-        # Configurar pesos para resize (6 columnas)
-        for i in range(6):
-            scrollable_frame.grid_columnconfigure(i, weight=1)
-        for i in range(31):
-            scrollable_frame.grid_rowconfigure(i, weight=1)
+        # Lo llamamos varias veces para asegurar que pille el tamaño real
+        self.root.after(100, actualizar_scrollregion)
+        self.root.after(300, actualizar_scrollregion)
+        self.root.after(600, actualizar_scrollregion)
 
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar_v.pack(side="right", fill="y")
+        # Y también cada vez que cambie el tamaño de la ventana o del contenido
+        self.canvas.bind("<Configure>", lambda e: actualizar_scrollregion())
+        self.scrollable_frame.bind("<Configure>", lambda e: actualizar_scrollregion())
 
+        for widget in (self.canvas, self.scrollable_frame, container):
+                widget.bind("<MouseWheel>", self._on_mousewheel)
+                widget.bind("<Shift-MouseWheel>", self._on_shift_mousewheel)
+                widget.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+                widget.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+                widget.bind("<Shift-Button-4>", lambda e: self.canvas.xview_scroll(-1, "units"))
+                widget.bind("<Shift-Button-5>", lambda e: self.canvas.xview_scroll(1, "units"))
+
+        def bind_all_children(parent):
+            for child in parent.winfo_children():
+                child.bind("<MouseWheel>", self._on_mousewheel)
+                child.bind("<Shift-MouseWheel>", self._on_shift_mousewheel)
+                child.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+                child.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+                child.bind("<Shift-Button-4>", lambda e: self.canvas.xview_scroll(-1, "units"))
+                child.bind("<Shift-Button-5>", lambda e: self.canvas.xview_scroll(1, "units"))
+                if child.winfo_children():
+                    bind_all_children(child)
+
+        self.scrollable_frame.bind("<Configure>", lambda e: bind_all_children(self.scrollable_frame))
+        self.root.after(500, lambda: bind_all_children(self.scrollable_frame))
+        
         # === TAB ORDER VERTICAL: Col1 (0-29), Col2 (30-59), Col3 (60-89) ===
         for i, entry in enumerate(self.entries):
             entry.lift()  # Asegurar visibilidad
@@ -123,7 +153,12 @@ class CorrectorPsicometrico:
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         return "break"  # Evita propagación
-
+    
+    def _on_shift_mousewheel(self, event):
+        # Shift + rueda = scroll horizontal
+        self.canvas.xview_scroll(int(-1 * (event.delta/120)), "units")
+        return "break"
+    
     # Validación de la escala (0-4)
     def _validar_likert(self, event):
         entry = event.widget

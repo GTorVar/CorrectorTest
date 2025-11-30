@@ -1,55 +1,67 @@
-name: Build EXE
+name: Build EXE (pequeño)
 
 on:
   push:
     tags:
-      - 'v*' 
- 
-permissions:
-  contents: write
+      - 'v*'
 
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
-      actions: write
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.11 
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.11'
+        cache: 'pip'
 
-    - name: Install PyInstaller + dependencies
+    - name: Install dependencies + PyInstaller
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller
-        if (Test-Path requirements.txt) { pip install -r requirements.txt }
-        
-    - name: Download and install UPX
+        pip install pyinstaller==6.10.0  
+        pip install -r requirements.txt  
+
+    - name: Download UPX 5.0.0 (la que mejor comprime ahora)
       run: |
         Invoke-WebRequest -Uri https://github.com/upx/upx/releases/download/v5.0.0/upx-5.0.0-win64.zip -OutFile upx.zip
-        Expand-Archive upx.zip -DestinationPath upx
-        echo "${{ github.workspace }}\upx\upx-5.0.0-win64" >> $env:GITHUB_PATH
+        Expand-Archive upx.zip -DestinationPath .
+        echo "$PWD\upx-5.0.0-win64" >> $env:GITHUB_PATH
 
-    - name: Verify UPX is available
-      run: upx --version
-
-    - name: Build EXE
+    - name: Build con trucos para mínimo tamaño
+      env:
+        # Fuerza el nivel máximo de UPX en todo lo que pueda
+        UPX_OPTIONS: --best --compress-exports=1 --strip-unneeded --overlay=strip
       run: |
-        pyinstaller --onefile --noconsole --clean --icon=icon.ico --name "SCL-90-R" --upx-dir "${{ github.workspace }}/upx/upx-5.0.0-win64" main.py
+        pyinstaller 
+            --onefile ^
+            --noconsole ^
+            --clean ^
+            --icon=icon.ico ^
+            --name "SCL-90-R" ^
+            --upx-dir "$PWD\upx-5.0.0-win64" ^
+            --exclude-module tkinter ^
+            --exclude-module _tkinter ^
+            --exclude-module Tkinter ^
+            --exclude-module matplotlib.tests ^
+            --exclude-module matplotlib.testing ^
+            main.py
 
-    - name: Upload EXE as artifact
-      uses: actions/upload-artifact@v4
+    - name: UPX extra sobre el exe final (el truco que falta a la mayoría)
+      run: |
+        upx --ultra-brutal "dist\SCL-90-R.exe"
+
+    - name: Mostrar tamaño final
+      run: |
+        Get-Item "dist\SCL-90-R.exe" | Select Name, @{n="MB";e={[math]::Round($_.Length/1MB,2)}}
+
+    - uses: actions/upload-artifact@v4
       with:
-        name: SCL-90R_EXE
+        name: SCL-90-R_Windows
         path: dist/SCL-90-R.exe
 
-    - name: Create Release + attach EXE
+    - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
