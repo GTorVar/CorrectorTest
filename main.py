@@ -98,7 +98,7 @@ class CorrectorPsicometrico:
 
                 # Validación en tiempo real (solo 0-4)
                 entry.bind('<KeyRelease>', self._validar_likert)
-        
+                        
         # === ACTUALIZAR SCROLLREGION PERFECTAMENTE (vertical + horizontal) ===
         def actualizar_scrollregion():
             self.canvas.update_idletasks()  # Fuerza a Tkinter a calcular todos los tamaños
@@ -236,6 +236,11 @@ class CorrectorPsicometrico:
             val = entry.get().strip()
             respuestas.append(int(val) if val.isdigit() else 0)  # 0 por defecto
 
+        for i in range(90):
+            if respuestas[i] > 4:
+                messagebox.showerror("Error", f"La respuesta {i+1} está fuera del rango")
+                return
+
         # Convertir todo a float (ya son ints, no need strip)
         try:
             valores = [float(x) for x in respuestas]
@@ -286,8 +291,6 @@ class CorrectorPsicometrico:
                 pst=resultados['Índices Globales']['PST'],
                 ruta_pdf=ruta_archivo  # ← ¡NUEVO PARÁMETRO!
             )
-
-            messagebox.showinfo("¡Perfecto!", f"Informe guardado correctamente en:\n{ruta_archivo}")
 
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo generar el PDF:\n{str(e)}")
